@@ -50,7 +50,7 @@ public class Server
 
             Console.WriteLine($"[클라이언트 접속] {client.Client.RemoteEndPoint} → playerID={assignedId}");
 
-            // ID 전송
+            // ID 전송 (개행 포함)
             SendMessage(newClient, $"ID:{assignedId}");
 
             Thread t = new Thread(HandleClient);         // 클라이언트 처리 스레드 생성
@@ -81,12 +81,12 @@ public class Server
 
                     if (saveData != null)
                     {
-                        // DB에 저장 (업서트)
+                        // DB에 저장 (업서트) — server-side assigned playerId 사용
                         bool ok = db.SaveOrUpdatePlayer(clientObj.playerId,
-                                                        saveData.LvValue,
-                                                        saveData.EXPValue,
+                                                        saveData.Lv,
+                                                        saveData.Exp,
                                                         saveData.WeaponName,
-                                                        saveData.WeaponUpgreadeValue);
+                                                        saveData.WeaponUpgrade);
                         if (ok) SendMessage(clientObj, "SAVE:OK");
                         else    SendMessage(clientObj, "SAVE:FAIL");
                     }
@@ -95,7 +95,34 @@ public class Server
                         SendMessage(clientObj, "SAVE:PARSE_ERROR");
                     }
 
-                    // 저장 메시지는 브로드캐스트하지 않음(원하면 변경)
+                    // 저장 메시지는 브로드캐스트하지 않음
+                    continue;
+                }
+
+                // 위치 메시지 처리: "POSITION:" 로 시작하면 파싱 후 브로드캐스트
+                if (msg.StartsWith("POSITION:", StringComparison.OrdinalIgnoreCase))
+                {
+                    string payload = msg.Substring(9).Trim();
+                    var pos = ParsePositionPayload(payload);
+                    if (pos != null)
+                    {
+                        // 브로드캐스트할 JSON 생성 (보내는 클라이언트의 서버측 playerId 포함)
+                        var outgoing = new {
+                            PlayerId = clientObj.playerId,
+                            x = pos.Value.x,
+                            y = pos.Value.y,
+                            z = pos.Value.z
+                        };
+                        string outJson = JsonSerializer.Serialize(outgoing);
+                        // 다른 클라이언트들에게 보냄 (발신자 제외)
+                        Broadcast(clientObj, $"POSITION:{outJson}");
+                        // 선택적으로 발신자에게 확인 응답
+                        SendMessage(clientObj, "POSITION:OK");
+                    }
+                    else
+                    {
+                        SendMessage(clientObj, "POSITION:PARSE_ERROR");
+                    }
                     continue;
                 }
 
@@ -117,7 +144,8 @@ public class Server
 
     private void Broadcast(Clients sender, string message, int excludeId = -1)
     {
-        byte[] data = Encoding.UTF8.GetBytes(message);
+        // 메시지 끝에 개행을 붙여 클라이언트가 줄 단위로 읽을 수 있게 함
+        byte[] data = Encoding.UTF8.GetBytes(message + "\n");
         lock (locker)
         {
             foreach (var c in clients)
@@ -135,7 +163,8 @@ public class Server
 
     private void SendMessage(Clients clientObj, string message)
     {
-        byte[] data = Encoding.UTF8.GetBytes(message);
+        // 메시지 끝에 개행 추가
+        byte[] data = Encoding.UTF8.GetBytes(message + "\n");
         try { clientObj.socket.GetStream().Write(data, 0, data.Length); }
         catch { }
     }
@@ -143,10 +172,10 @@ public class Server
     // 저장 데이터 표현형
     private class SavePayload
     {
-        public int LvValue;
-        public int EXPValue;
+        public int Lv;
+        public int Exp;
         public string WeaponName;
-        public int WeaponUpgreadeValue;
+        public int WeaponUpgrade;
     }
 
     // 페이로드 파싱: JSON 우선, 실패하면 key=value;key2=value2 또는 pipe 구분자 지원
@@ -161,10 +190,10 @@ public class Server
             {
                 var root = doc.RootElement;
                 var p = new SavePayload();
-                if (root.TryGetProperty("LvValue", out var lv)) p.LvValue = lv.GetInt32();
-                if (root.TryGetProperty("EXPValue", out var exp)) p.EXPValue = exp.GetInt32();
+                if (root.TryGetProperty("Lv", out var lv)) p.Lv = lv.GetInt32();
+                if (root.TryGetProperty("Exp", out var exp)) p.Exp = exp.GetInt32();
                 if (root.TryGetProperty("WeaponName", out var wn)) p.WeaponName = wn.GetString();
-                if (root.TryGetProperty("WeaponUpgreadeValue", out var wu)) p.WeaponUpgreadeValue = wu.GetInt32();
+                if (root.TryGetProperty("WeaponUpgrade", out var wu)) p.WeaponUpgrade = wu.GetInt32();
                 return p;
             }
         }
@@ -182,17 +211,86 @@ public class Server
                 if (kv.Length != 2) continue;
                 var key = kv[0].Trim();
                 var val = kv[1].Trim();
-                if (key.Equals("LvValue", StringComparison.OrdinalIgnoreCase)) int.TryParse(val, out p.LvValue);
-                else if (key.Equals("EXPValue", StringComparison.OrdinalIgnoreCase)) int.TryParse(val, out p.EXPValue);
+                if (key.Equals("Lv", StringComparison.OrdinalIgnoreCase)) int.TryParse(val, out p.Lv);
+                else if (key.Equals("Exp", StringComparison.OrdinalIgnoreCase)) int.TryParse(val, out p.Exp);
                 else if (key.Equals("WeaponName", StringComparison.OrdinalIgnoreCase)) p.WeaponName = val;
-                else if (key.Equals("WeaponUpgreadeValue", StringComparison.OrdinalIgnoreCase)) int.TryParse(val, out p.WeaponUpgreadeValue);
+                else if (key.Equals("WeaponUpgrade", StringComparison.OrdinalIgnoreCase)) int.TryParse(val, out p.WeaponUpgrade);
             }
-            // 최소한 WeaponName 혹은 LvValue 등 하나라도 채워졌으면 반환
-            if (p.WeaponName != null || p.LvValue != 0 || p.EXPValue != 0 || p.WeaponUpgreadeValue != 0) return p;
+            // 최소한 하나의 값이 들어있으면 반환
+            if (p.WeaponName != null || p.Lv != 0 || p.Exp != 0 || p.WeaponUpgrade != 0) return p;
         }
         catch { }
 
         return null; // 파싱 실패
+    }
+
+    // 위치 데이터 표현형 (내부 사용)
+    private struct PositionPayload { public int x; public int y; public int z; }
+
+    // 위치 페이로드 파싱: JSON, "x,y,z", 또는 key=value;key=value 형식 지원
+    private PositionPayload? ParsePositionPayload(string payload)
+    {
+        if (string.IsNullOrWhiteSpace(payload)) return null;
+
+        // 1) JSON 시도: {"x":1,"y":2,"z":3} 또는 array [1,2,3]
+        try
+        {
+            using (JsonDocument doc = JsonDocument.Parse(payload))
+            {
+                var root = doc.RootElement;
+                var p = new PositionPayload();
+                if (root.ValueKind == JsonValueKind.Array && root.GetArrayLength() >= 3)
+                {
+                    p.x = root[0].GetInt32();
+                    p.y = root[1].GetInt32();
+                    p.z = root[2].GetInt32();
+                    return p;
+                }
+                if (root.TryGetProperty("x", out var px)) p.x = px.GetInt32();
+                if (root.TryGetProperty("y", out var py)) p.y = py.GetInt32();
+                if (root.TryGetProperty("z", out var pz)) p.z = pz.GetInt32();
+                // 최소 하나 이상 세팅되었으면 반환 (완전성은 호출자에서 판단 가능)
+                return p;
+            }
+        }
+        catch { /* JSON 파싱 실패 -> 다음 시도 */ }
+
+        // 2) CSV 형태 "1,2,3"
+        try
+        {
+            var parts = payload.Split(new char[] { ',', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length >= 3)
+            {
+                int x, y, z;
+                if (int.TryParse(parts[0], out x) && int.TryParse(parts[1], out y) && int.TryParse(parts[2], out z))
+                {
+                    return new PositionPayload() { x = x, y = y, z = z };
+                }
+            }
+        }
+        catch { }
+
+        // 3) key=value;key2=value2 형식
+        try
+        {
+            var parts = payload.Split(new char[] { ';', '|' }, StringSplitOptions.RemoveEmptyEntries);
+            var p = new PositionPayload();
+            foreach (var part in parts)
+            {
+                var kv = part.Split(new char[] { '=' }, 2);
+                if (kv.Length != 2) continue;
+                var key = kv[0].Trim();
+                var val = kv[1].Trim();
+                if (key.Equals("x", StringComparison.OrdinalIgnoreCase)) int.TryParse(val, out p.x);
+                else if (key.Equals("y", StringComparison.OrdinalIgnoreCase)) int.TryParse(val, out p.y);
+                else if (key.Equals("z", StringComparison.OrdinalIgnoreCase)) int.TryParse(val, out p.z);
+            }
+            // 최소 하나 이상 유효하면 반환
+            return p;
+        }
+        catch { }
+
+        return null;
     }
 }
 
@@ -256,7 +354,7 @@ public class DatabaseManager
                 cmd.Parameters.AddWithValue("$time", DateTime.UtcNow.ToString("o"));
                 cmd.ExecuteNonQuery();
             }
-            Console.WriteLine($"[DB 저장] playerID={playerId}, Lv={lv}, EXP={exp}, Weapon={weaponName}, WUp={weaponUpgrade}");
+            Console.WriteLine($"[DB 저장] playerID={playerId}, Lv={lv}, Exp={exp}, Weapon={weaponName}, WUp={weaponUpgrade}");
             return true;
         }
         catch (Exception ex)
