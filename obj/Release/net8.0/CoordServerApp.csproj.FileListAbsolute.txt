@@ -1,0 +1,14 @@
+/home/ubuntu/CoordServerApp/bin/Release/net8.0/CoordServerApp
+/home/ubuntu/CoordServerApp/bin/Release/net8.0/CoordServerApp.deps.json
+/home/ubuntu/CoordServerApp/bin/Release/net8.0/CoordServerApp.runtimeconfig.json
+/home/ubuntu/CoordServerApp/bin/Release/net8.0/CoordServerApp.dll
+/home/ubuntu/CoordServerApp/bin/Release/net8.0/CoordServerApp.pdb
+/home/ubuntu/CoordServerApp/obj/Release/net8.0/CoordServerApp.GeneratedMSBuildEditorConfig.editorconfig
+/home/ubuntu/CoordServerApp/obj/Release/net8.0/CoordServerApp.AssemblyInfoInputs.cache
+/home/ubuntu/CoordServerApp/obj/Release/net8.0/CoordServerApp.AssemblyInfo.cs
+/home/ubuntu/CoordServerApp/obj/Release/net8.0/CoordServerApp.csproj.CoreCompileInputs.cache
+/home/ubuntu/CoordServerApp/obj/Release/net8.0/CoordServerApp.dll
+/home/ubuntu/CoordServerApp/obj/Release/net8.0/refint/CoordServerApp.dll
+/home/ubuntu/CoordServerApp/obj/Release/net8.0/CoordServerApp.pdb
+/home/ubuntu/CoordServerApp/obj/Release/net8.0/CoordServerApp.genruntimeconfig.cache
+/home/ubuntu/CoordServerApp/obj/Release/net8.0/ref/CoordServerApp.dll
