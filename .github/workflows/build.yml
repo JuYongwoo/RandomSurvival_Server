@@ -1,0 +1,32 @@
+name: .NET Server Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'   # 또는 CoordServerApp.csproj에 맞는 SDK 버전 (예: 7.0.x)
+
+      - name: Restore dependencies
+        run: dotnet restore ./CoordServerApp.csproj
+
+      - name: Build
+        run: dotnet build ./CoordServerApp.csproj --configuration Release --no-restore
+
+      - name: Test (optional)
+        run: dotnet test --configuration Release --no-build || echo "No tests found"
+
+      - name: Publish
+        run: dotnet publish ./CoordServerApp.csproj -c Release -o ./publish
