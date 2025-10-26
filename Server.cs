@@ -48,13 +48,14 @@ public class Server
                 clients.Add(newClient);                  // 리스트에 추가
             }
 
-            Console.WriteLine($"[클라이언트 접속] {client.Client.RemoteEndPoint} → playerID={assignedId}");
+            Console.WriteLine($"{assignedId}:ENTER:{client.Client.RemoteEndPoint}");
 
             // ID 전송 (개행 포함)
-            SendMessage(newClient, $"ID:{assignedId}");
+            SendMessage(newClient, $"{assignedId}:ID:{assignedId}");
+            Broadcast(newClient, $"{assignedId}:ENTER");
 
-            Thread t = new Thread(HandleClient);         // 클라이언트 처리 스레드 생성
-            t.Start(newClient);                          // 스레드 시작
+            Thread t = new Thread(HandleClient);         // 클라이언트 하나 당 처리할 스레드 할당, HandleClient(무한 루프)
+            t.Start(newClient);
         }
     }
 
@@ -71,36 +72,29 @@ public class Server
             while ((bytesRead = stream.Read(buffer, 0, buffer.Length)) > 0)
             {
                 string msg = Encoding.UTF8.GetString(buffer, 0, bytesRead).Trim(); // 메시지 문자열로 변환
-                Console.WriteLine($"[수신] playerID={clientObj.playerId}, msg={msg}");
+                Console.WriteLine($"{clientObj.playerId}:{msg}");
 
-                // 저장 메시지 처리: "SAVE:" 로 시작하면 DB에 저장 시도
-                if (msg.StartsWith("SAVE:", StringComparison.OrdinalIgnoreCase))
+                if (msg.Contains("SAVE:", StringComparison.OrdinalIgnoreCase))
                 {
                     string payload = msg.Substring(5).Trim(); // 접두사 제거
                     var saveData = ParseSavePayload(payload); // 파싱 시도
 
                     if (saveData != null)
                     {
-                        // DB에 저장 (업서트) — server-side assigned playerId 사용
-                        bool ok = db.SaveOrUpdatePlayer(clientObj.playerId,
-                                                        saveData.Lv,
-                                                        saveData.Exp,
-                                                        saveData.WeaponName,
-                                                        saveData.WeaponUpgrade);
-                        if (ok) SendMessage(clientObj, "SAVE:OK");
-                        else    SendMessage(clientObj, "SAVE:FAIL");
+                        bool ok = db.SaveOrUpdatePlayer(clientObj.playerId, saveData.Lv, saveData.Exp, saveData.WeaponName, saveData.WeaponUpgrade);
+                        if (ok) SendMessage(clientObj, "SERVER:SAVE:OK");
+                        else    SendMessage(clientObj, "SERVER:SAVE:FAIL");
                     }
                     else
                     {
-                        SendMessage(clientObj, "SAVE:PARSE_ERROR");
+                        SendMessage(clientObj, "SERVER:SAVE:PARSE_ERROR");
                     }
 
                     // 저장 메시지는 브로드캐스트하지 않음
                     continue;
                 }
 
-                // 위치 메시지 처리: "POSITION:" 로 시작하면 파싱 후 브로드캐스트
-                if (msg.StartsWith("POSITION:", StringComparison.OrdinalIgnoreCase))
+                if (msg.Contains("POSITION:", StringComparison.OrdinalIgnoreCase))
                 {
                     string payload = msg.Substring(9).Trim();
                     var pos = ParsePositionPayload(payload);
@@ -113,21 +107,18 @@ public class Server
                             y = pos.Value.y,
                             z = pos.Value.z
                         };
-                        string outJson = JsonSerializer.Serialize(outgoing);
-                        // 다른 클라이언트들에게 보냄 (발신자 제외)
-                        Broadcast(clientObj, $"POSITION:{outJson}");
-                        // 선택적으로 발신자에게 확인 응답
-                        SendMessage(clientObj, "POSITION:OK");
+                        // string outJson = JsonSerializer.Serialize(outgoing);
+                        Broadcast(clientObj, $"{clientObj.playerId}:POSITION:{outgoing.x},{outgoing.y},{outgoing.z}");
+                        SendMessage(clientObj, "SERVER:POSITION:OK");
                     }
                     else
                     {
-                        SendMessage(clientObj, "POSITION:PARSE_ERROR");
+                        SendMessage(clientObj, "SERVER:POSITION:PARSE_ERROR");
                     }
                     continue;
                 }
 
-                // 일반 메시지는 브로드캐스트 (기존 동작)
-                Broadcast(clientObj, msg); //송신한 클라이언트를 제외한 모든 클라이언트에게 보낸다
+                Broadcast(clientObj, $"{clientObj.playerId}:{msg}"); //송신한 클라이언트를 제외한 모든 클라이언트에게 보낸다
             }
         }
         catch (Exception ex)
@@ -138,7 +129,8 @@ public class Server
         {
             lock (locker) clients.Remove(clientObj);     // 연결 종료 시 리스트에서 제거
             client.Close();                              // 소켓 닫기
-            Console.WriteLine($"[클라이언트 종료] playerID={clientObj.playerId}");
+            Console.WriteLine($"{clientObj.playerId}:EXIT");
+            Broadcast(clientObj, $"{clientObj.playerId}:EXIT");
         }
     }
 
