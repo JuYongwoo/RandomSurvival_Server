@@ -69,7 +69,7 @@ public class Server
 
         try
         {
-            while ((bytesRead = stream.Read(buffer, 0, buffer.Length)) > 0)
+            while ((bytesRead = stream.Read(buffer, 0, buffer.Length)) > 0) //Read로 바이트 올때까지 대기 or 받고 while 루프, but 끊어지면 0 반환으로 finally에서 접속 해제 실행
             {
                 string msg = Encoding.UTF8.GetString(buffer, 0, bytesRead).Trim(); // 메시지 문자열로 변환
                 Console.WriteLine($"{clientObj.playerId}:{msg}");
