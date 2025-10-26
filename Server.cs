@@ -82,12 +82,12 @@ public class Server
                     if (saveData != null)
                     {
                         bool ok = db.SaveOrUpdatePlayer(clientObj.playerId, saveData.Lv, saveData.Exp, saveData.WeaponName, saveData.WeaponUpgrade);
-                        if (ok) SendMessage(clientObj, "SERVER:SAVE:OK");
-                        else    SendMessage(clientObj, "SERVER:SAVE:FAIL");
+                        if (ok) SendMessage(clientObj, "-1:SAVE:OK");
+                        else    SendMessage(clientObj, "-1:SAVE:FAIL");
                     }
                     else
                     {
-                        SendMessage(clientObj, "SERVER:SAVE:PARSE_ERROR");
+                        SendMessage(clientObj, "-1:SAVE:PARSE_ERROR");
                     }
 
                     // 저장 메시지는 브로드캐스트하지 않음
@@ -109,11 +109,11 @@ public class Server
                         };
                         // string outJson = JsonSerializer.Serialize(outgoing);
                         Broadcast(clientObj, $"{clientObj.playerId}:POSITION:{outgoing.x},{outgoing.y},{outgoing.z}");
-                        SendMessage(clientObj, "SERVER:POSITION:OK");
+                        SendMessage(clientObj, "-1:POSITION:OK");
                     }
                     else
                     {
-                        SendMessage(clientObj, "SERVER:POSITION:PARSE_ERROR");
+                        SendMessage(clientObj, "-1:POSITION:PARSE_ERROR");
                     }
                     continue;
                 }

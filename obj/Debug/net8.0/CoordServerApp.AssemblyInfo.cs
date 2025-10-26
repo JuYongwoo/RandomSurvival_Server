@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("CoordServerApp")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7e9b891bb8717df0e33833add735c57f29a6e51f")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+b155af2841bc82f7406a0e149f72e5e667607973")]
 [assembly: System.Reflection.AssemblyProductAttribute("CoordServerApp")]
 [assembly: System.Reflection.AssemblyTitleAttribute("CoordServerApp")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
